@@ -44,6 +44,7 @@ export interface ChatMessage {
   content: string;
   sender: 'user' | 'bot';
   timestamp: string;
+  navigateQuery?: string; // Added for navigation feature
 }
 
 export interface Notification {

@@ -246,8 +246,7 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
       } else {
         botResponse = "I couldn't find any restrooms in your immediate vicinity in Coimbatore district. Would you like me to expand the search radius?";
       }
-    } // ... keep existing else if pattern for all "clean", "fuel", "accessible" etc. branches ...
-    else if (
+    } else if (
       normalizedQuery.includes("clean") || normalizedQuery.includes("hygienic")
     ) {
       const cleanRestrooms = allRestrooms.filter(r => r.cleanliness.score >= 85);
@@ -269,8 +268,7 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
       } else {
         botResponse = "I can help you find clean restrooms in Coimbatore district, but I need your location to provide the best results. Please enable location services.";
       }
-    } // ... (other queries such as "fuel", "accessible", etc. stay unchanged, add addNavigate=true if results found)
-    else if (
+    } else if (
       normalizedQuery.includes("fuel") ||
       normalizedQuery.includes("petrol") ||
       normalizedQuery.includes("gas station")
@@ -293,8 +291,7 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
       } else {
         botResponse = "I don't have specific information about fuel station restrooms in our database yet. Would you like to see other restroom options in Coimbatore district?";
       }
-    } // ... (other queries like "accessible", "baby", "gender neutral", addNavigate as appropriate)
-    else if (
+    } else if (
       normalizedQuery.includes("accessible") || normalizedQuery.includes("disability")
     ) {
       const accessibleRestrooms = allRestrooms.filter(r => r.accessibility);
@@ -385,7 +382,7 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
             sender: "bot",
             timestamp: new Date().toISOString(),
             navigateQuery // custom property for rendering button
-          } as any
+          } as ChatMessage
         ]);
       } else {
         const botMessage: ChatMessage = {
@@ -470,14 +467,14 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
                     }`}
                   >
                     {msg.content}
-                    {/* Show "Navigate to Map" if navigateQuery is defined (only on latest bot messages) */}
+                    {/* Show "Navigate to Map" if navigateQuery is defined */}
                     {msg.navigateQuery && (
                       <div className="mt-2 flex justify-end">
                         <Button 
                           size="sm"
                           variant="outline"
                           className="flex items-center gap-1 shadow"
-                          onClick={() => handleNavigateToMap(msg.navigateQuery)}
+                          onClick={() => handleNavigateToMap(msg.navigateQuery as string)}
                         >
                           <MapIcon size={16} className="mr-1" />
                           Navigate to Map
