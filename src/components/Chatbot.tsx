@@ -50,7 +50,7 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
-      content: "Hello! I'm your RestStop assistant for Vadavalli, Coimbatore. How can I help you find restrooms today?",
+      content: "Hello! I'm your RestStop assistant for Coimbatore district. I can help you find restrooms across the entire district, including areas like Vadavalli, Saibaba Colony, Ganapathy and many more locations. How can I help you today?",
       sender: "bot",
       timestamp: new Date().toISOString(),
     },
@@ -158,7 +158,7 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
       ];
     }
     
-    // Check for Vadavalli/Coimbatore specific locations
+    // Check for Coimbatore specific locations
     if (normalizedQuery.includes("vadavalli") || normalizedQuery.includes("fuel station vadavalli")) {
       const vadavalliRestrooms = allRestrooms.filter(r => 
         r.name.toLowerCase().includes("vadavalli") || 
@@ -167,10 +167,10 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
       
       if (vadavalliRestrooms.length > 0) {
         const topRated = vadavalliRestrooms.sort((a, b) => b.cleanliness.score - a.cleanliness.score)[0];
-        botResponse = `I found ${vadavalliRestrooms.length} restrooms in Vadavalli area. The top rated is ${topRated.name} with a cleanliness score of ${topRated.cleanliness.score}/100. Would you like me to show them on the map?`;
+        botResponse = `I found ${vadavalliRestrooms.length} restrooms in Vadavalli area of Coimbatore. The top rated is ${topRated.name} with a cleanliness score of ${topRated.cleanliness.score}/100. Would you like me to show them on the map?`;
         onFindNearbyRestrooms("vadavalli");
       } else {
-        botResponse = "I couldn't find specific restrooms in Vadavalli in our database. Would you like me to show all restrooms in Coimbatore instead?";
+        botResponse = "I couldn't find specific restrooms in Vadavalli in our database. Would you like me to show all restrooms across Coimbatore district instead?";
       }
     } else if (normalizedQuery.includes("saibaba colony") || normalizedQuery.includes("fuel station saibaba")) {
       const saibabaRestrooms = allRestrooms.filter(r => 
@@ -181,10 +181,10 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
       if (saibabaRestrooms.length > 0) {
         const firstResult = saibabaRestrooms[0];
         const cleanlinessRating = getCleanlinessTier(firstResult.cleanliness.score);
-        botResponse = `I found a ${cleanlinessRating === 'high' ? "highly rated" : cleanlinessRating === 'medium' ? "moderately rated" : "lower rated"} restroom at ${firstResult.name} in Saibaba Colony. Note that this location has been reported as ${firstResult.cleanliness.score < 70 ? "not very clean" : "clean"}.`;
+        botResponse = `I found a ${cleanlinessRating === 'high' ? "highly rated" : cleanlinessRating === 'medium' ? "moderately rated" : "lower rated"} restroom at ${firstResult.name} in Saibaba Colony, Coimbatore. Note that this location has been reported as ${firstResult.cleanliness.score < 70 ? "not very clean" : "clean"}.`;
         onFindNearbyRestrooms("saibaba colony");
       } else {
-        botResponse = "I don't have specific information about restrooms in Saibaba Colony yet. Would you like to see other options in Coimbatore?";
+        botResponse = "I don't have specific information about restrooms in Saibaba Colony yet. Would you like to see other options across Coimbatore district?";
       }
     } else if (normalizedQuery.includes("ganapathy") || normalizedQuery.includes("fuel station ganapathy")) {
       const ganapathyRestrooms = allRestrooms.filter(r => 
@@ -193,10 +193,19 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
       );
       
       if (ganapathyRestrooms.length > 0) {
-        botResponse = `I found a highly-rated restroom at ${ganapathyRestrooms[0].name} in Ganapathy with excellent cleanliness ratings. Would you like to see it on the map?`;
+        botResponse = `I found a highly-rated restroom at ${ganapathyRestrooms[0].name} in Ganapathy, Coimbatore with excellent cleanliness ratings. Would you like to see it on the map?`;
         onFindNearbyRestrooms("ganapathy");
       } else {
-        botResponse = "I don't have specific information about restrooms in Ganapathy yet. Would you like to see other options in Coimbatore?";
+        botResponse = "I don't have specific information about restrooms in Ganapathy yet. Would you like to see other options in Coimbatore district?";
+      }
+    } else if (normalizedQuery.includes("coimbatore") || normalizedQuery.includes("district")) {
+      // Handle general queries about Coimbatore district
+      if (nearbyRestrooms.length > 0) {
+        botResponse = `I found ${nearbyRestrooms.length} restrooms in Coimbatore district near your current location. Would you like me to show them on the map?`;
+        onFindNearbyRestrooms("coimbatore");
+      } else {
+        const totalRestrooms = allRestrooms.length;
+        botResponse = `Our database has information on ${totalRestrooms} restrooms across Coimbatore district. Could you specify a particular area or let me access your location to find the nearest ones?`;
       }
     // Check different types of queries
     } else if (normalizedQuery.includes("restroom") || 
@@ -210,12 +219,12 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
         const cleanlinessText = cleanlinessRating === 'high' ? "highly rated" : 
                                 cleanlinessRating === 'medium' ? "moderately rated" : "lower rated";
         
-        botResponse = `I found ${count} restrooms near you in Coimbatore. The closest is ${closest.name}, which is ${cleanlinessText} for cleanliness. Would you like to see them on the map?`;
+        botResponse = `I found ${count} restrooms near you in Coimbatore district. The closest is ${closest.name}, which is ${cleanlinessText} for cleanliness. Would you like to see them on the map?`;
         onFindNearbyRestrooms(query);
       } else if (!hasLocationPermission) {
-        botResponse = "I'd like to find restrooms near you in Coimbatore, but I need permission to access your location. Please enable location services and try again.";
+        botResponse = "I'd like to find restrooms near you in Coimbatore district, but I need permission to access your location. Please enable location services and try again.";
       } else {
-        botResponse = "I couldn't find any restrooms in your immediate vicinity in Coimbatore. Would you like me to expand the search radius?";
+        botResponse = "I couldn't find any restrooms in your immediate vicinity in Coimbatore district. Would you like me to expand the search radius?";
       }
     } else if (normalizedQuery.includes("clean") || normalizedQuery.includes("hygienic")) {
       const cleanRestrooms = allRestrooms.filter(r => r.cleanliness.score >= 85);
@@ -230,13 +239,13 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
         });
         
         if (nearbyCleanRestrooms.length > 0) {
-          botResponse = `I found ${nearbyCleanRestrooms.length} highly-rated clean restrooms near you in Coimbatore. The top rated is ${nearbyCleanRestrooms[0].name} with a cleanliness score of ${nearbyCleanRestrooms[0].cleanliness.score}/100. Would you like me to show them on the map?`;
+          botResponse = `I found ${nearbyCleanRestrooms.length} highly-rated clean restrooms near you in Coimbatore district. The top rated is ${nearbyCleanRestrooms[0].name} with a cleanliness score of ${nearbyCleanRestrooms[0].cleanliness.score}/100. Would you like me to show them on the map?`;
           onFindNearbyRestrooms("clean restrooms");
         } else {
-          botResponse = "I couldn't find any highly-rated clean restrooms in your immediate vicinity in Coimbatore. Would you like me to expand the search radius?";
+          botResponse = "I couldn't find any highly-rated clean restrooms in your immediate vicinity in Coimbatore district. Would you like me to expand the search radius?";
         }
       } else {
-        botResponse = "I can help you find clean restrooms in Coimbatore, but I need your location to provide the best results. Please enable location services.";
+        botResponse = "I can help you find clean restrooms in Coimbatore district, but I need your location to provide the best results. Please enable location services.";
       }
     } else if (normalizedQuery.includes("fuel") || normalizedQuery.includes("petrol") || normalizedQuery.includes("gas station")) {
       // Get fuel station restrooms from our dataset
@@ -249,13 +258,13 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
         const cleanFuelStations = fuelStationRestrooms.filter(r => r.cleanliness.score >= 80);
         
         if (cleanFuelStations.length > 0) {
-          botResponse = `I found ${cleanFuelStations.length} clean restrooms at fuel stations in Coimbatore. The best ones are at ${cleanFuelStations[0].name} and ${cleanFuelStations.length > 1 ? cleanFuelStations[1].name : "other locations"}. Would you like to see them on the map?`;
+          botResponse = `I found ${cleanFuelStations.length} clean restrooms at fuel stations across Coimbatore district. The best ones are at ${cleanFuelStations[0].name} and ${cleanFuelStations.length > 1 ? cleanFuelStations[1].name : "other locations"}. Would you like to see them on the map?`;
         } else {
-          botResponse = `I found ${fuelStationRestrooms.length} restrooms at fuel stations in Coimbatore, but their cleanliness ratings vary. The highest rated is at ${fuelStationRestrooms.sort((a, b) => b.cleanliness.score - a.cleanliness.score)[0].name}.`;
+          botResponse = `I found ${fuelStationRestrooms.length} restrooms at fuel stations in Coimbatore district, but their cleanliness ratings vary. The highest rated is at ${fuelStationRestrooms.sort((a, b) => b.cleanliness.score - a.cleanliness.score)[0].name}.`;
         }
         onFindNearbyRestrooms("fuel station");
       } else {
-        botResponse = "I don't have specific information about fuel station restrooms in our database yet. Would you like to see other restroom options in Coimbatore?";
+        botResponse = "I don't have specific information about fuel station restrooms in our database yet. Would you like to see other restroom options in Coimbatore district?";
       }
     } else if (normalizedQuery.includes("accessible") || normalizedQuery.includes("disability")) {
       const accessibleRestrooms = allRestrooms.filter(r => r.accessibility);
@@ -270,13 +279,13 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
         });
         
         if (nearbyAccessible.length > 0) {
-          botResponse = `I found ${nearbyAccessible.length} accessible restrooms near you in Coimbatore. Would you like me to show them on the map?`;
+          botResponse = `I found ${nearbyAccessible.length} accessible restrooms near you in Coimbatore district. Would you like me to show them on the map?`;
           onFindNearbyRestrooms("accessible");
         } else {
-          botResponse = "I couldn't find any accessible restrooms in your immediate vicinity in Coimbatore. Would you like me to expand the search radius?";
+          botResponse = "I couldn't find any accessible restrooms in your immediate vicinity in Coimbatore district. Would you like me to expand the search radius?";
         }
       } else {
-        botResponse = "I can help you find accessible restrooms in Coimbatore, but I need your location to provide the best results. Please enable location services.";
+        botResponse = "I can help you find accessible restrooms in Coimbatore district, but I need your location to provide the best results. Please enable location services.";
       }
     } else if (normalizedQuery.includes("baby") || normalizedQuery.includes("changing")) {
       const babyChangingRestrooms = allRestrooms.filter(r => r.babyChanging);
@@ -291,13 +300,13 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
         });
         
         if (nearbyBabyChanging.length > 0) {
-          botResponse = `I found ${nearbyBabyChanging.length} restrooms with baby changing facilities near you in Coimbatore. Would you like me to show them on the map?`;
+          botResponse = `I found ${nearbyBabyChanging.length} restrooms with baby changing facilities near you in Coimbatore district. Would you like me to show them on the map?`;
           onFindNearbyRestrooms("baby changing");
         } else {
-          botResponse = "I couldn't find any restrooms with baby changing facilities in your immediate vicinity in Coimbatore. Would you like me to expand the search radius?";
+          botResponse = "I couldn't find any restrooms with baby changing facilities in your immediate vicinity in Coimbatore district. Would you like me to expand the search radius?";
         }
       } else {
-        botResponse = "I can help you find restrooms with baby changing facilities in Coimbatore, but I need your location to provide the best results.";
+        botResponse = "I can help you find restrooms with baby changing facilities in Coimbatore district, but I need your location to provide the best results.";
       }
     } else if (normalizedQuery.includes("gender") || normalizedQuery.includes("neutral")) {
       const genderNeutralRestrooms = allRestrooms.filter(r => r.genderNeutral);
@@ -312,24 +321,26 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
         });
         
         if (nearbyGenderNeutral.length > 0) {
-          botResponse = `I found ${nearbyGenderNeutral.length} gender-neutral restrooms near you in Coimbatore. Would you like me to show them on the map?`;
+          botResponse = `I found ${nearbyGenderNeutral.length} gender-neutral restrooms near you in Coimbatore district. Would you like me to show them on the map?`;
           onFindNearbyRestrooms("gender neutral");
         } else {
-          botResponse = "I couldn't find any gender-neutral restrooms in your immediate vicinity in Coimbatore. Would you like me to expand the search radius?";
+          botResponse = "I couldn't find any gender-neutral restrooms in your immediate vicinity in Coimbatore district. Would you like me to expand the search radius?";
         }
       } else {
-        botResponse = "I can help you find gender-neutral restrooms in Coimbatore, but I need your location to provide the best results.";
+        botResponse = "I can help you find gender-neutral restrooms in Coimbatore district, but I need your location to provide the best results.";
       }
     } else if (normalizedQuery.includes("help")) {
-      botResponse = "You can ask me to find restrooms in Vadavalli, Coimbatore, get information about specific features like cleanliness ratings, accessibility, baby changing facilities, or gender-neutral options. I can also help you find restrooms at fuel stations. What would you like to know?";
+      botResponse = "You can ask me to find restrooms anywhere in Coimbatore district, including specific areas like Vadavalli, Saibaba Colony, or Ganapathy. I can provide information about cleanliness ratings, accessibility, baby changing facilities, or gender-neutral options. I can also help you find restrooms at fuel stations. What would you like to know?";
     } else if (normalizedQuery.includes("location") || normalizedQuery.includes("where am i")) {
       if (hasLocationPermission) {
-        botResponse = `You're currently located at approximately latitude ${currentLocation.lat.toFixed(4)} and longitude ${currentLocation.lng.toFixed(4)}. This appears to be in the Coimbatore area. I can help find restrooms near this location.`;
+        botResponse = `You're currently located at approximately latitude ${currentLocation.lat.toFixed(4)} and longitude ${currentLocation.lng.toFixed(4)}. This appears to be in the Coimbatore district area. I can help find restrooms near this location.`;
       } else {
-        botResponse = "I don't currently have access to your location. Please enable location services so I can provide better assistance in finding restrooms in Coimbatore.";
+        botResponse = "I don't currently have access to your location. Please enable location services so I can provide better assistance in finding restrooms in Coimbatore district.";
       }
+    } else if (normalizedQuery.includes("areas") || normalizedQuery.includes("locations") || normalizedQuery.includes("places")) {
+      botResponse = "I have information about restrooms in various areas of Coimbatore district including Vadavalli, Saibaba Colony, Ganapathy, Podanur, Saravanampatti, Thudiyalur, Sulur, and many other locations. Which area are you interested in?";
     } else {
-      botResponse = "I'm here to help you find and locate restrooms in Coimbatore, particularly in areas like Vadavalli, Saibaba Colony, and Ganapathy. You can ask about nearby restrooms, clean facilities, accessible options, baby changing stations, or gender-neutral bathrooms. How can I assist you today?";
+      botResponse = "I'm here to help you find and locate restrooms across the entire Coimbatore district. You can ask about specific areas like Vadavalli, Saibaba Colony, or Ganapathy, or ask about nearby restrooms, clean facilities, accessible options, baby changing stations, or gender-neutral bathrooms. How can I assist you today?";
     }
     
     setTimeout(() => {
@@ -388,7 +399,7 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
       {isOpen && (
         <Card className="fixed bottom-4 right-4 w-80 md:w-96 h-96 shadow-xl flex flex-col animate-fade-in">
           <div className="flex items-center justify-between bg-primary text-white p-3 rounded-t-lg">
-            <div className="font-semibold">RestStop Assistant</div>
+            <div className="font-semibold">RestStop Assistant - Coimbatore District</div>
             <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="text-white hover:bg-primary/80">
               <X size={18} />
             </Button>

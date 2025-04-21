@@ -71,6 +71,43 @@ const fuelStationDataset = [
     "Accessibility": "Yes",
     "Review": "Excellent cleanliness and well-equipped with essentials.",
     "Tag": "clean"
+  },
+  // Additional locations in Coimbatore for better district-wide coverage
+  {
+    "Name": "Fuel Station Singanallur #1549",
+    "Location": "Singanallur, Coimbatore",
+    "Type": "Petrol Bunk",
+    "Cleanliness Rating": 4.3,
+    "Accessibility": "Yes",
+    "Review": "Very clean facilities and well maintained.",
+    "Tag": "clean"
+  },
+  {
+    "Name": "Fuel Station RS Puram #1550",
+    "Location": "RS Puram, Coimbatore",
+    "Type": "Petrol Bunk",
+    "Cleanliness Rating": 4.5,
+    "Accessibility": "Yes",
+    "Review": "Excellent facilities, very hygienic and comfortable.",
+    "Tag": "clean"
+  },
+  {
+    "Name": "Fuel Station Peelamedu #1551",
+    "Location": "Peelamedu, Coimbatore",
+    "Type": "Petrol Bunk",
+    "Cleanliness Rating": 3.8,
+    "Accessibility": "Yes",
+    "Review": "Good maintenance and cleanliness standards.",
+    "Tag": "clean"
+  },
+  {
+    "Name": "Fuel Station Ukkadam #1552",
+    "Location": "Ukkadam, Coimbatore",
+    "Type": "Petrol Bunk",
+    "Cleanliness Rating": 2.9,
+    "Accessibility": "Yes",
+    "Review": "Average facilities, needs improvement in cleanliness.",
+    "Tag": "moderate"
   }
 ];
 
@@ -233,4 +270,26 @@ export const getRecommendedRestrooms = (
   
   // Return top recommendations (limit to 5)
   return recommended.slice(0, 5);
+};
+
+// Get restrooms by area name in Coimbatore district
+export const getRestroomsByArea = (areaName: string): Restroom[] => {
+  const normalizedAreaName = areaName.toLowerCase();
+  
+  return userRestrooms.filter(restroom => 
+    restroom.name.toLowerCase().includes(normalizedAreaName) || 
+    (restroom.location.address && restroom.location.address.toLowerCase().includes(normalizedAreaName))
+  );
+};
+
+// Search restrooms by multiple criteria (name, description, address, etc.)
+export const searchRestrooms = (searchTerm: string): Restroom[] => {
+  const normalizedSearch = searchTerm.toLowerCase();
+  
+  return userRestrooms.filter(restroom => 
+    restroom.name.toLowerCase().includes(normalizedSearch) || 
+    (restroom.description && restroom.description.toLowerCase().includes(normalizedSearch)) ||
+    (restroom.location.address && restroom.location.address.toLowerCase().includes(normalizedSearch)) ||
+    (restroom.location.city && restroom.location.city.toLowerCase().includes(normalizedSearch))
+  );
 };
