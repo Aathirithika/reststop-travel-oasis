@@ -6,6 +6,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
 import { MessageSquare, Send, X, Mic, MicOff } from "lucide-react";
 import { ChatMessage } from "@/types";
+import { getAllRestrooms, getRestroomsByLocation, getCleanlinessTier, defaultLocation } from "@/data/restrooms";
+import { getNearbyRestrooms, getUserRestrooms } from "@/data/userRestrooms";
+import { toast } from "sonner";
 
 interface ChatbotProps {
   onFindNearbyRestrooms: (query: string) => void;
@@ -24,6 +27,65 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
   ]);
   const [isListening, setIsListening] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [currentLocation, setCurrentLocation] = useState(defaultLocation);
+  const [hasLocationPermission, setHasLocationPermission] = useState(false);
+  
+  // Speech recognition setup
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  
+  useEffect(() => {
+    // Get user's location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurrentLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+          setHasLocationPermission(true);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          toast.error("Location access denied. Some features may be limited.");
+        }
+      );
+    }
+    
+    // Initialize speech recognition
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-US';
+      
+      recognitionRef.current.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setMessage(transcript);
+        // Auto send voice message
+        setTimeout(() => {
+          handleSendMessage(transcript);
+          setIsListening(false);
+        }, 500);
+      };
+      
+      recognitionRef.current.onerror = (event) => {
+        console.error('Speech recognition error', event.error);
+        setIsListening(false);
+        toast.error("Voice recognition error. Please try again.");
+      };
+      
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+    
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
+  }, []);
   
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -31,36 +93,155 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
     }
   }, [messages]);
 
-  const handleSendMessage = () => {
-    if (!message.trim()) return;
+  const handleSendMessage = (inputMessage: string = message) => {
+    if (!inputMessage.trim()) return;
     
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
-      content: message,
+      content: inputMessage,
       sender: "user",
       timestamp: new Date().toISOString(),
     };
     
-    setMessages([...messages, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
     setMessage("");
     
-    // Simulate bot response
-    setTimeout(() => {
-      let botResponse: string;
+    // Process the query based on our dataset
+    processUserQuery(inputMessage);
+  };
+
+  const processUserQuery = async (query: string) => {
+    // Normalize the query for better matching
+    const normalizedQuery = query.toLowerCase();
+    let botResponse = "";
+    
+    // Get all available restrooms
+    const allRestrooms = [...getAllRestrooms(), ...getUserRestrooms()];
+    let nearbyRestrooms: any[] = [];
+    
+    if (hasLocationPermission) {
+      nearbyRestrooms = [
+        ...getRestroomsByLocation(currentLocation.lat, currentLocation.lng, 2),
+        ...getNearbyRestrooms(currentLocation.lat, currentLocation.lng, 2)
+      ];
+    }
+    
+    // Check different types of queries
+    if (normalizedQuery.includes("restroom") || 
+        normalizedQuery.includes("bathroom") || 
+        normalizedQuery.includes("toilet")) {
       
-      if (message.toLowerCase().includes("restroom") || 
-          message.toLowerCase().includes("bathroom") || 
-          message.toLowerCase().includes("toilet")) {
-        botResponse = "I found several restrooms near your location. Would you like me to show them on the map?";
-        onFindNearbyRestrooms(message);
-      } else if (message.toLowerCase().includes("help")) {
-        botResponse = "You can ask me to find restrooms near you, get information about amenities, or check cleanliness ratings. How can I assist you today?";
-      } else if (message.toLowerCase().includes("clean")) {
-        botResponse = "I can help you find the cleanest restrooms in your area. Would you like me to show those on the map?";
+      if (nearbyRestrooms.length > 0) {
+        const count = nearbyRestrooms.length;
+        const closest = nearbyRestrooms[0];
+        const cleanlinessRating = getCleanlinessTier(closest.cleanliness.score);
+        const cleanlinessText = cleanlinessRating === 'high' ? "highly rated" : 
+                                cleanlinessRating === 'medium' ? "moderately rated" : "lower rated";
+        
+        botResponse = `I found ${count} restrooms near you. The closest is ${closest.name}, which is ${cleanlinessText} for cleanliness. Would you like to see them on the map?`;
+        onFindNearbyRestrooms(query);
+      } else if (!hasLocationPermission) {
+        botResponse = "I'd like to find restrooms near you, but I need permission to access your location. Please enable location services and try again.";
       } else {
-        botResponse = "I'm here to help you find and locate restrooms. Can you provide more details about what you're looking for?";
+        botResponse = "I couldn't find any restrooms in your immediate vicinity. Would you like me to expand the search radius?";
       }
+    } else if (normalizedQuery.includes("clean") || normalizedQuery.includes("hygienic")) {
+      const cleanRestrooms = allRestrooms.filter(r => r.cleanliness.score >= 85);
       
+      if (hasLocationPermission && cleanRestrooms.length > 0) {
+        const nearbyCleanRestrooms = cleanRestrooms.filter(r => {
+          const distance = Math.sqrt(
+            Math.pow(r.location.lat - currentLocation.lat, 2) + 
+            Math.pow(r.location.lng - currentLocation.lng, 2)
+          ) * 111; // rough conversion to km
+          return distance <= 3;
+        });
+        
+        if (nearbyCleanRestrooms.length > 0) {
+          botResponse = `I found ${nearbyCleanRestrooms.length} highly-rated clean restrooms near you. The top rated is ${nearbyCleanRestrooms[0].name} with a cleanliness score of ${nearbyCleanRestrooms[0].cleanliness.score}/100. Would you like me to show them on the map?`;
+          onFindNearbyRestrooms("clean restrooms");
+        } else {
+          botResponse = "I couldn't find any highly-rated clean restrooms in your immediate vicinity. Would you like me to expand the search radius?";
+        }
+      } else {
+        botResponse = "I can help you find clean restrooms, but I need your location to provide the best results. Please enable location services.";
+      }
+    } else if (normalizedQuery.includes("accessible") || normalizedQuery.includes("disability")) {
+      const accessibleRestrooms = allRestrooms.filter(r => r.accessibility);
+      
+      if (hasLocationPermission && accessibleRestrooms.length > 0) {
+        const nearbyAccessible = accessibleRestrooms.filter(r => {
+          const distance = Math.sqrt(
+            Math.pow(r.location.lat - currentLocation.lat, 2) + 
+            Math.pow(r.location.lng - currentLocation.lng, 2)
+          ) * 111;
+          return distance <= 3;
+        });
+        
+        if (nearbyAccessible.length > 0) {
+          botResponse = `I found ${nearbyAccessible.length} accessible restrooms near you. Would you like me to show them on the map?`;
+          onFindNearbyRestrooms("accessible");
+        } else {
+          botResponse = "I couldn't find any accessible restrooms in your immediate vicinity. Would you like me to expand the search radius?";
+        }
+      } else {
+        botResponse = "I can help you find accessible restrooms, but I need your location to provide the best results. Please enable location services.";
+      }
+    } else if (normalizedQuery.includes("baby") || normalizedQuery.includes("changing")) {
+      const babyChangingRestrooms = allRestrooms.filter(r => r.babyChanging);
+      
+      if (hasLocationPermission && babyChangingRestrooms.length > 0) {
+        const nearbyBabyChanging = babyChangingRestrooms.filter(r => {
+          const distance = Math.sqrt(
+            Math.pow(r.location.lat - currentLocation.lat, 2) + 
+            Math.pow(r.location.lng - currentLocation.lng, 2)
+          ) * 111;
+          return distance <= 3;
+        });
+        
+        if (nearbyBabyChanging.length > 0) {
+          botResponse = `I found ${nearbyBabyChanging.length} restrooms with baby changing facilities near you. Would you like me to show them on the map?`;
+          onFindNearbyRestrooms("baby changing");
+        } else {
+          botResponse = "I couldn't find any restrooms with baby changing facilities in your immediate vicinity. Would you like me to expand the search radius?";
+        }
+      } else {
+        botResponse = "I can help you find restrooms with baby changing facilities, but I need your location to provide the best results.";
+      }
+    } else if (normalizedQuery.includes("gender") || normalizedQuery.includes("neutral")) {
+      const genderNeutralRestrooms = allRestrooms.filter(r => r.genderNeutral);
+      
+      if (hasLocationPermission && genderNeutralRestrooms.length > 0) {
+        const nearbyGenderNeutral = genderNeutralRestrooms.filter(r => {
+          const distance = Math.sqrt(
+            Math.pow(r.location.lat - currentLocation.lat, 2) + 
+            Math.pow(r.location.lng - currentLocation.lng, 2)
+          ) * 111;
+          return distance <= 3;
+        });
+        
+        if (nearbyGenderNeutral.length > 0) {
+          botResponse = `I found ${nearbyGenderNeutral.length} gender-neutral restrooms near you. Would you like me to show them on the map?`;
+          onFindNearbyRestrooms("gender neutral");
+        } else {
+          botResponse = "I couldn't find any gender-neutral restrooms in your immediate vicinity. Would you like me to expand the search radius?";
+        }
+      } else {
+        botResponse = "I can help you find gender-neutral restrooms, but I need your location to provide the best results.";
+      }
+    } else if (normalizedQuery.includes("help")) {
+      botResponse = "You can ask me to find restrooms near you, get information about specific features like cleanliness ratings, accessibility, baby changing facilities, or gender-neutral options. I can also help you navigate to the nearest restroom. What would you like to know?";
+    } else if (normalizedQuery.includes("location") || normalizedQuery.includes("where am i")) {
+      if (hasLocationPermission) {
+        botResponse = `You're currently located at approximately latitude ${currentLocation.lat.toFixed(4)} and longitude ${currentLocation.lng.toFixed(4)}. This appears to be in the Coimbatore area. I can help find restrooms near this location.`;
+      } else {
+        botResponse = "I don't currently have access to your location. Please enable location services so I can provide better assistance.";
+      }
+    } else {
+      botResponse = "I'm here to help you find and locate restrooms. You can ask about nearby restrooms, clean facilities, accessible options, baby changing stations, or gender-neutral bathrooms. How can I assist you today?";
+    }
+    
+    setTimeout(() => {
       const botMessage: ChatMessage = {
         id: `bot-${Date.now()}`,
         content: botResponse,
@@ -69,12 +250,37 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
       };
       
       setMessages(prev => [...prev, botMessage]);
+      
+      // If text-to-speech is available, speak the response
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(botResponse);
+        window.speechSynthesis.speak(utterance);
+      }
     }, 1000);
   };
 
   const toggleListening = () => {
-    setIsListening(!isListening);
-    // In a real app, we would implement voice recognition here
+    if (isListening) {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+      setIsListening(false);
+    } else {
+      if (!recognitionRef.current) {
+        toast.error("Speech recognition is not supported in your browser.");
+        return;
+      }
+      
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+        toast.info("Listening... Speak now.");
+      } catch (error) {
+        console.error("Speech recognition error:", error);
+        toast.error("Could not start speech recognition. Please try again.");
+        setIsListening(false);
+      }
+    }
   };
 
   return (
@@ -127,24 +333,26 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
               className="flex items-center gap-2"
             >
               <Input
-                placeholder="Type your message..."
+                placeholder={isListening ? "Listening..." : "Type your message..."}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                className="flex-1"
+                className={`flex-1 ${isListening ? 'border-primary' : ''}`}
+                disabled={isListening}
               />
               <Button 
                 type="button" 
                 size="icon" 
-                variant="ghost" 
+                variant={isListening ? "destructive" : "ghost"}
                 onClick={toggleListening}
+                className={isListening ? "animate-pulse" : ""}
               >
                 {isListening ? (
-                  <MicOff size={18} className="text-red-500" />
+                  <MicOff size={18} />
                 ) : (
                   <Mic size={18} />
                 )}
               </Button>
-              <Button type="submit" size="icon">
+              <Button type="submit" size="icon" disabled={isListening}>
                 <Send size={18} />
               </Button>
             </form>
