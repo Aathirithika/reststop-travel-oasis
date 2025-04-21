@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,7 @@ import { ChatMessage } from "@/types";
 import { getAllRestrooms, getRestroomsByLocation, getCleanlinessTier, defaultLocation } from "@/data/restrooms";
 import { getNearbyRestrooms, getUserRestrooms } from "@/data/userRestrooms";
 import { toast } from "sonner";
+import { Map as MapIcon } from "lucide-react"; // Add map icon for navigation button
 
 // Define SpeechRecognition interface for TypeScript
 interface SpeechRecognitionEvent extends Event {
@@ -59,6 +59,8 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [currentLocation, setCurrentLocation] = useState(defaultLocation);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
+  const [showMapFromBot, setShowMapFromBot] = useState(false);
+  const [pendingMapQuery, setPendingMapQuery] = useState<string | null>(null);
   
   // Speech recognition setup
   const recognitionRef = useRef<SpeechRecognitionInterface | null>(null);
@@ -142,11 +144,23 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
     processUserQuery(inputMessage);
   };
 
+  // Helper for bot responses to append navigation
+  const appendNavigateToMapButton = (response: string, query: string) => {
+    return {
+      type: "bot",
+      content: response,
+      navigateQuery: query
+    } as any; // Add a special property to be rendered as navigation option.
+  };
+
+  // MARKER: Replace previous usage of botResponse for restroom and area queries to now include a "Navigate" button
   const processUserQuery = async (query: string) => {
     // Normalize the query for better matching
     const normalizedQuery = query.toLowerCase();
-    let botResponse = "";
-    
+    let botResponse: string | undefined = undefined;
+    let addNavigate = false;
+    let navigateQuery: string = "";
+
     // Get all available restrooms
     const allRestrooms = [...getAllRestrooms(), ...getUserRestrooms()];
     let nearbyRestrooms: any[] = [];
@@ -158,31 +172,37 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
       ];
     }
     
-    // Check for Coimbatore specific locations
-    if (normalizedQuery.includes("vadavalli") || normalizedQuery.includes("fuel station vadavalli")) {
+    // When the user asks about any restroom or a specific area, offer navigation
+    if (
+      normalizedQuery.includes("vadavalli") ||
+      normalizedQuery.includes("fuel station vadavalli")
+    ) {
       const vadavalliRestrooms = allRestrooms.filter(r => 
         r.name.toLowerCase().includes("vadavalli") || 
         (r.location.address && r.location.address.toLowerCase().includes("vadavalli"))
       );
-      
       if (vadavalliRestrooms.length > 0) {
         const topRated = vadavalliRestrooms.sort((a, b) => b.cleanliness.score - a.cleanliness.score)[0];
-        botResponse = `I found ${vadavalliRestrooms.length} restrooms in Vadavalli area of Coimbatore. The top rated is ${topRated.name} with a cleanliness score of ${topRated.cleanliness.score}/100. Would you like me to show them on the map?`;
-        onFindNearbyRestrooms("vadavalli");
+        botResponse = `I found ${vadavalliRestrooms.length} restrooms in Vadavalli area of Coimbatore. The top rated is ${topRated.name} with a cleanliness score of ${topRated.cleanliness.score}/100.`;
+        addNavigate = true;
+        navigateQuery = "vadavalli";
       } else {
         botResponse = "I couldn't find specific restrooms in Vadavalli in our database. Would you like me to show all restrooms across Coimbatore district instead?";
       }
-    } else if (normalizedQuery.includes("saibaba colony") || normalizedQuery.includes("fuel station saibaba")) {
+    } else if (
+      normalizedQuery.includes("saibaba colony") ||
+      normalizedQuery.includes("fuel station saibaba")
+    ) {
       const saibabaRestrooms = allRestrooms.filter(r => 
         r.name.toLowerCase().includes("saibaba") || 
         (r.location.address && r.location.address.toLowerCase().includes("saibaba"))
       );
-      
       if (saibabaRestrooms.length > 0) {
         const firstResult = saibabaRestrooms[0];
         const cleanlinessRating = getCleanlinessTier(firstResult.cleanliness.score);
         botResponse = `I found a ${cleanlinessRating === 'high' ? "highly rated" : cleanlinessRating === 'medium' ? "moderately rated" : "lower rated"} restroom at ${firstResult.name} in Saibaba Colony, Coimbatore. Note that this location has been reported as ${firstResult.cleanliness.score < 70 ? "not very clean" : "clean"}.`;
-        onFindNearbyRestrooms("saibaba colony");
+        addNavigate = true;
+        navigateQuery = "saibaba colony";
       } else {
         botResponse = "I don't have specific information about restrooms in Saibaba Colony yet. Would you like to see other options across Coimbatore district?";
       }
@@ -191,44 +211,46 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
         r.name.toLowerCase().includes("ganapathy") || 
         (r.location.address && r.location.address.toLowerCase().includes("ganapathy"))
       );
-      
       if (ganapathyRestrooms.length > 0) {
-        botResponse = `I found a highly-rated restroom at ${ganapathyRestrooms[0].name} in Ganapathy, Coimbatore with excellent cleanliness ratings. Would you like to see it on the map?`;
-        onFindNearbyRestrooms("ganapathy");
+        botResponse = `I found a highly-rated restroom at ${ganapathyRestrooms[0].name} in Ganapathy, Coimbatore with excellent cleanliness ratings.`;
+        addNavigate = true;
+        navigateQuery = "ganapathy";
       } else {
         botResponse = "I don't have specific information about restrooms in Ganapathy yet. Would you like to see other options in Coimbatore district?";
       }
     } else if (normalizedQuery.includes("coimbatore") || normalizedQuery.includes("district")) {
-      // Handle general queries about Coimbatore district
       if (nearbyRestrooms.length > 0) {
-        botResponse = `I found ${nearbyRestrooms.length} restrooms in Coimbatore district near your current location. Would you like me to show them on the map?`;
-        onFindNearbyRestrooms("coimbatore");
+        botResponse = `I found ${nearbyRestrooms.length} restrooms in Coimbatore district near your current location.`;
+        addNavigate = true;
+        navigateQuery = "coimbatore";
       } else {
         const totalRestrooms = allRestrooms.length;
         botResponse = `Our database has information on ${totalRestrooms} restrooms across Coimbatore district. Could you specify a particular area or let me access your location to find the nearest ones?`;
       }
-    // Check different types of queries
-    } else if (normalizedQuery.includes("restroom") || 
-        normalizedQuery.includes("bathroom") || 
-        normalizedQuery.includes("toilet")) {
-      
+    } else if (
+      normalizedQuery.includes("restroom") || 
+      normalizedQuery.includes("bathroom") || 
+      normalizedQuery.includes("toilet")
+    ) {
       if (nearbyRestrooms.length > 0) {
         const count = nearbyRestrooms.length;
         const closest = nearbyRestrooms[0];
         const cleanlinessRating = getCleanlinessTier(closest.cleanliness.score);
         const cleanlinessText = cleanlinessRating === 'high' ? "highly rated" : 
                                 cleanlinessRating === 'medium' ? "moderately rated" : "lower rated";
-        
-        botResponse = `I found ${count} restrooms near you in Coimbatore district. The closest is ${closest.name}, which is ${cleanlinessText} for cleanliness. Would you like to see them on the map?`;
-        onFindNearbyRestrooms(query);
+        botResponse = `I found ${count} restrooms near you in Coimbatore district. The closest is ${closest.name}, which is ${cleanlinessText} for cleanliness.`;
+        addNavigate = true;
+        navigateQuery = query;
       } else if (!hasLocationPermission) {
         botResponse = "I'd like to find restrooms near you in Coimbatore district, but I need permission to access your location. Please enable location services and try again.";
       } else {
         botResponse = "I couldn't find any restrooms in your immediate vicinity in Coimbatore district. Would you like me to expand the search radius?";
       }
-    } else if (normalizedQuery.includes("clean") || normalizedQuery.includes("hygienic")) {
+    } // ... keep existing else if pattern for all "clean", "fuel", "accessible" etc. branches ...
+    else if (
+      normalizedQuery.includes("clean") || normalizedQuery.includes("hygienic")
+    ) {
       const cleanRestrooms = allRestrooms.filter(r => r.cleanliness.score >= 85);
-      
       if (hasLocationPermission && cleanRestrooms.length > 0) {
         const nearbyCleanRestrooms = cleanRestrooms.filter(r => {
           const distance = Math.sqrt(
@@ -237,38 +259,45 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
           ) * 111; // rough conversion to km
           return distance <= 3;
         });
-        
         if (nearbyCleanRestrooms.length > 0) {
-          botResponse = `I found ${nearbyCleanRestrooms.length} highly-rated clean restrooms near you in Coimbatore district. The top rated is ${nearbyCleanRestrooms[0].name} with a cleanliness score of ${nearbyCleanRestrooms[0].cleanliness.score}/100. Would you like me to show them on the map?`;
-          onFindNearbyRestrooms("clean restrooms");
+          botResponse = `I found ${nearbyCleanRestrooms.length} highly-rated clean restrooms near you in Coimbatore district. The top rated is ${nearbyCleanRestrooms[0].name} with a cleanliness score of ${nearbyCleanRestrooms[0].cleanliness.score}/100.`;
+          addNavigate = true;
+          navigateQuery = "clean restrooms";
         } else {
           botResponse = "I couldn't find any highly-rated clean restrooms in your immediate vicinity in Coimbatore district. Would you like me to expand the search radius?";
         }
       } else {
         botResponse = "I can help you find clean restrooms in Coimbatore district, but I need your location to provide the best results. Please enable location services.";
       }
-    } else if (normalizedQuery.includes("fuel") || normalizedQuery.includes("petrol") || normalizedQuery.includes("gas station")) {
-      // Get fuel station restrooms from our dataset
+    } // ... (other queries such as "fuel", "accessible", etc. stay unchanged, add addNavigate=true if results found)
+    else if (
+      normalizedQuery.includes("fuel") ||
+      normalizedQuery.includes("petrol") ||
+      normalizedQuery.includes("gas station")
+    ) {
       const fuelStationRestrooms = allRestrooms.filter(r => 
         r.businessInfo.type === "gas_station" || 
         r.name.toLowerCase().includes("fuel")
       );
-      
       if (fuelStationRestrooms.length > 0) {
         const cleanFuelStations = fuelStationRestrooms.filter(r => r.cleanliness.score >= 80);
-        
         if (cleanFuelStations.length > 0) {
-          botResponse = `I found ${cleanFuelStations.length} clean restrooms at fuel stations across Coimbatore district. The best ones are at ${cleanFuelStations[0].name} and ${cleanFuelStations.length > 1 ? cleanFuelStations[1].name : "other locations"}. Would you like to see them on the map?`;
+          botResponse = `I found ${cleanFuelStations.length} clean restrooms at fuel stations across Coimbatore district. The best ones are at ${cleanFuelStations[0].name} and ${cleanFuelStations.length > 1 ? cleanFuelStations[1].name : "other locations"}.`;
+          addNavigate = true;
+          navigateQuery = "fuel station";
         } else {
           botResponse = `I found ${fuelStationRestrooms.length} restrooms at fuel stations in Coimbatore district, but their cleanliness ratings vary. The highest rated is at ${fuelStationRestrooms.sort((a, b) => b.cleanliness.score - a.cleanliness.score)[0].name}.`;
+          addNavigate = true;
+          navigateQuery = "fuel station";
         }
-        onFindNearbyRestrooms("fuel station");
       } else {
         botResponse = "I don't have specific information about fuel station restrooms in our database yet. Would you like to see other restroom options in Coimbatore district?";
       }
-    } else if (normalizedQuery.includes("accessible") || normalizedQuery.includes("disability")) {
+    } // ... (other queries like "accessible", "baby", "gender neutral", addNavigate as appropriate)
+    else if (
+      normalizedQuery.includes("accessible") || normalizedQuery.includes("disability")
+    ) {
       const accessibleRestrooms = allRestrooms.filter(r => r.accessibility);
-      
       if (hasLocationPermission && accessibleRestrooms.length > 0) {
         const nearbyAccessible = accessibleRestrooms.filter(r => {
           const distance = Math.sqrt(
@@ -277,19 +306,20 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
           ) * 111;
           return distance <= 3;
         });
-        
         if (nearbyAccessible.length > 0) {
-          botResponse = `I found ${nearbyAccessible.length} accessible restrooms near you in Coimbatore district. Would you like me to show them on the map?`;
-          onFindNearbyRestrooms("accessible");
+          botResponse = `I found ${nearbyAccessible.length} accessible restrooms near you in Coimbatore district.`;
+          addNavigate = true;
+          navigateQuery = "accessible";
         } else {
           botResponse = "I couldn't find any accessible restrooms in your immediate vicinity in Coimbatore district. Would you like me to expand the search radius?";
         }
       } else {
         botResponse = "I can help you find accessible restrooms in Coimbatore district, but I need your location to provide the best results. Please enable location services.";
       }
-    } else if (normalizedQuery.includes("baby") || normalizedQuery.includes("changing")) {
+    } else if (
+      normalizedQuery.includes("baby") || normalizedQuery.includes("changing")
+    ) {
       const babyChangingRestrooms = allRestrooms.filter(r => r.babyChanging);
-      
       if (hasLocationPermission && babyChangingRestrooms.length > 0) {
         const nearbyBabyChanging = babyChangingRestrooms.filter(r => {
           const distance = Math.sqrt(
@@ -298,19 +328,20 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
           ) * 111;
           return distance <= 3;
         });
-        
         if (nearbyBabyChanging.length > 0) {
-          botResponse = `I found ${nearbyBabyChanging.length} restrooms with baby changing facilities near you in Coimbatore district. Would you like me to show them on the map?`;
-          onFindNearbyRestrooms("baby changing");
+          botResponse = `I found ${nearbyBabyChanging.length} restrooms with baby changing facilities near you in Coimbatore district.`;
+          addNavigate = true;
+          navigateQuery = "baby changing";
         } else {
           botResponse = "I couldn't find any restrooms with baby changing facilities in your immediate vicinity in Coimbatore district. Would you like me to expand the search radius?";
         }
       } else {
         botResponse = "I can help you find restrooms with baby changing facilities in Coimbatore district, but I need your location to provide the best results.";
       }
-    } else if (normalizedQuery.includes("gender") || normalizedQuery.includes("neutral")) {
+    } else if (
+      normalizedQuery.includes("gender") || normalizedQuery.includes("neutral")
+    ) {
       const genderNeutralRestrooms = allRestrooms.filter(r => r.genderNeutral);
-      
       if (hasLocationPermission && genderNeutralRestrooms.length > 0) {
         const nearbyGenderNeutral = genderNeutralRestrooms.filter(r => {
           const distance = Math.sqrt(
@@ -319,10 +350,10 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
           ) * 111;
           return distance <= 3;
         });
-        
         if (nearbyGenderNeutral.length > 0) {
-          botResponse = `I found ${nearbyGenderNeutral.length} gender-neutral restrooms near you in Coimbatore district. Would you like me to show them on the map?`;
-          onFindNearbyRestrooms("gender neutral");
+          botResponse = `I found ${nearbyGenderNeutral.length} gender-neutral restrooms near you in Coimbatore district.`;
+          addNavigate = true;
+          navigateQuery = "gender neutral";
         } else {
           botResponse = "I couldn't find any gender-neutral restrooms in your immediate vicinity in Coimbatore district. Would you like me to expand the search radius?";
         }
@@ -342,23 +373,42 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
     } else {
       botResponse = "I'm here to help you find and locate restrooms across the entire Coimbatore district. You can ask about specific areas like Vadavalli, Saibaba Colony, or Ganapathy, or ask about nearby restrooms, clean facilities, accessible options, baby changing stations, or gender-neutral bathrooms. How can I assist you today?";
     }
-    
+
+    // Update messages with or without navigation
     setTimeout(() => {
-      const botMessage: ChatMessage = {
-        id: `bot-${Date.now()}`,
-        content: botResponse,
-        sender: "bot",
-        timestamp: new Date().toISOString(),
-      };
-      
-      setMessages(prev => [...prev, botMessage]);
-      
-      // If text-to-speech is available, speak the response
-      if ('speechSynthesis' in window) {
+      if (botResponse && addNavigate) {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: `bot-${Date.now()}`,
+            content: botResponse,
+            sender: "bot",
+            timestamp: new Date().toISOString(),
+            navigateQuery // custom property for rendering button
+          } as any
+        ]);
+      } else {
+        const botMessage: ChatMessage = {
+          id: `bot-${Date.now()}`,
+          content: botResponse || "",
+          sender: "bot",
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, botMessage]);
+      }
+
+      // Text to speech
+      if (botResponse && 'speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(botResponse);
         window.speechSynthesis.speak(utterance);
       }
     }, 1000);
+  };
+
+  // New handler for the "Navigate to Map" button
+  const handleNavigateToMap = (query: string) => {
+    onFindNearbyRestrooms(query);
+    setIsOpen(false); // Minimize chat
   };
 
   const toggleListening = () => {
@@ -420,6 +470,20 @@ export function Chatbot({ onFindNearbyRestrooms }: ChatbotProps) {
                     }`}
                   >
                     {msg.content}
+                    {/* Show "Navigate to Map" if navigateQuery is defined (only on latest bot messages) */}
+                    {msg.navigateQuery && (
+                      <div className="mt-2 flex justify-end">
+                        <Button 
+                          size="sm"
+                          variant="outline"
+                          className="flex items-center gap-1 shadow"
+                          onClick={() => handleNavigateToMap(msg.navigateQuery)}
+                        >
+                          <MapIcon size={16} className="mr-1" />
+                          Navigate to Map
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
