@@ -167,6 +167,14 @@ const Index = () => {
     setFilterRadius(Number(value));
   };
 
+  // -- Add this function to focus map on selected restroom and switch to map view --
+  const handleShowOnMap = (restroomId: string) => {
+    setViewMode("map");
+    setIsDetailView(false);
+    setSelectedId(restroomId);
+    toast.info("Centered map on restroom location.");
+  };
+
   const selectedRestroom = restrooms.find(r => r.id === selectedId);
 
   return (
@@ -296,6 +304,7 @@ const Index = () => {
               <RestroomDetail 
                 restroom={selectedRestroom}
                 onBack={handleBackFromDetail}
+                onShowOnMap={() => handleShowOnMap(selectedRestroom.id)}
               />
             </div>
           ) : (
