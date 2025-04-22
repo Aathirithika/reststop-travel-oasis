@@ -125,11 +125,8 @@ const fuelStationDataset = [
 // Function to convert the fuel station dataset to Restroom format
 const convertDatasetToRestrooms = (): Restroom[] => {
   return fuelStationDataset.map((station, index) => {
-    // Use the provided coordinates instead of random ones
-    const locationCoords = station.Coordinates || {
-      lat: defaultLocation.lat + (Math.random() - 0.5) * 0.1,
-      lng: defaultLocation.lng + (Math.random() - 0.5) * 0.1
-    };
+    // Use the station's Coordinates directly (they are now guaranteed to exist)
+    const locationCoords = station.Coordinates;
     
     // Extract location parts
     const locationParts = station.Location.split(', ');
