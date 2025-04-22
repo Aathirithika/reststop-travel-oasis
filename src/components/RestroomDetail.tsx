@@ -31,16 +31,14 @@ export function RestroomDetail({ restroom, onBack, onShowOnMap }: RestroomDetail
   };
 
   const handleReportCleanliness = () => {
-    toast({
-      title: "Report Submitted",
+    toast("Report Submitted", {
       description: "Thank you for reporting the cleanliness status.",
     });
   };
 
   const calculateRoute = async () => {
     if (!navigator.geolocation) {
-      toast({
-        title: "Error",
+      toast("Error", {
         description: "Geolocation is not supported by your browser",
         variant: "destructive",
       });
@@ -77,8 +75,7 @@ export function RestroomDetail({ restroom, onBack, onShowOnMap }: RestroomDetail
       }
     } catch (error) {
       console.error('Error calculating route:', error);
-      toast({
-        title: "Error",
+      toast("Error", {
         description: "Could not calculate route. Please try again.",
         variant: "destructive",
       });
