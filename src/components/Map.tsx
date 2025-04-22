@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from "react-leaflet";
 import { Icon, LatLng } from "leaflet";
@@ -5,7 +6,7 @@ import { Toilet, Star, Route, Navigation } from "lucide-react";
 import { Restroom } from "@/types";
 import { getCleanlinessTier } from "@/data/restrooms";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import "leaflet/dist/leaflet.css";
 
 interface MapProps {
@@ -55,59 +56,71 @@ function MapUpdater({
 
   useEffect(() => {
     if (selectedRestroom && userLocation) {
-      // Calculate and display route
-      const origin = `${userLocation.coords.latitude},${userLocation.coords.longitude}`;
-      const destination = `${selectedRestroom.location.lat},${selectedRestroom.location.lng}`;
-      
-      const getRoute = async () => {
+      // Calculate and display route using OSRM (Open Source Routing Machine)
+      const fetchRoute = async () => {
         try {
+          const startLat = userLocation.coords.latitude;
+          const startLng = userLocation.coords.longitude;
+          const endLat = selectedRestroom.location.lat;
+          const endLng = selectedRestroom.location.lng;
+          
+          // Use OSRM public API for routing (no API key required)
           const response = await fetch(
-            `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=driving&key=${process.env.GOOGLE_MAPS_API_KEY}`
+            `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson`
           );
           
           const data = await response.json();
           
-          if (data.routes?.[0]?.overview_path) {
-            const path = data.routes[0].legs[0].steps.map((step: any) => [
-              step.start_location.lat,
-              step.start_location.lng
-            ]);
+          if (data.routes && data.routes.length > 0) {
+            // Extract the coordinates from the response
+            const coordinates = data.routes[0].geometry.coordinates.map(
+              (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+            );
             
-            setRoutePath(path);
+            setRoutePath(coordinates);
+            
+            // Calculate and display route details
+            const distanceInKm = (data.routes[0].distance / 1000).toFixed(1);
+            const durationInMin = Math.round(data.routes[0].duration / 60);
+            
             setRouteDetails({
-              distance: data.routes[0].legs[0].distance.text,
-              duration: data.routes[0].legs[0].duration.text
+              distance: `${distanceInKm} km`,
+              duration: `${durationInMin} min`
             });
 
             // Fit map bounds to show the entire route
-            const bounds = path.reduce((bounds: any, coord: [number, number]) => {
-              return bounds.extend(coord);
-            }, map.getBounds());
+            if (coordinates.length > 0) {
+              const bounds = coordinates.reduce((bounds: any, coord: [number, number]) => {
+                return bounds.extend(coord);
+              }, new LatLng(coordinates[0][0], coordinates[0][1]).toBounds(500));
+              
+              map.fitBounds(bounds, { padding: [50, 50] });
+            }
             
-            map.fitBounds(bounds, { padding: [50, 50] });
+            toast.success("Route calculated successfully!");
+          } else {
+            toast.error("Could not calculate route between locations");
           }
         } catch (error) {
           console.error('Error fetching route:', error);
-          toast({
-            title: "Error",
-            description: "Could not calculate route. Please try again.",
-            variant: "destructive",
-          });
+          toast.error("Could not calculate route. Please try again.");
         }
       };
 
-      getRoute();
+      fetchRoute();
     }
   }, [selectedRestroom, userLocation, map]);
 
-  return routePath.length > 0 ? (
+  return (
     <>
-      <Polyline 
-        positions={routePath}
-        color="#0077ff"
-        weight={4}
-        opacity={0.8}
-      />
+      {routePath.length > 0 && (
+        <Polyline 
+          positions={routePath}
+          color="#0077ff"
+          weight={4}
+          opacity={0.8}
+        />
+      )}
       {routeDetails && (
         <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg z-[1000]">
           <div className="flex items-center gap-2">
@@ -121,7 +134,7 @@ function MapUpdater({
         </div>
       )}
     </>
-  ) : null;
+  );
 }
 
 export function Map({ restrooms, currentLocation, selectedId, onSelectRestroom }: MapProps) {
@@ -137,14 +150,11 @@ export function Map({ restrooms, currentLocation, selectedId, onSelectRestroom }
         navigator.geolocation.getCurrentPosition(
           (position) => {
             setUserLocation(position);
+            toast.success("Location access granted. Calculating route...");
           },
           (error) => {
             console.error('Error getting location:', error);
-            toast({
-              title: "Location Access Required",
-              description: "Please enable location services to see directions.",
-              variant: "destructive",
-            });
+            toast.error("Location access required to see directions. Please enable location services.");
           }
         );
       }
