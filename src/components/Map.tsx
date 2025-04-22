@@ -63,6 +63,8 @@ function MapUpdater({
           const startLng = userLocation.coords.longitude;
           const endLat = selectedRestroom.location.lat;
           const endLng = selectedRestroom.location.lng;
+
+          console.log(`Calculating route from [${startLat}, ${startLng}] to [${endLat}, ${endLng}]`);
           
           // Use OSRM public API for routing (no API key required)
           const response = await fetch(
@@ -99,6 +101,7 @@ function MapUpdater({
             
             toast.success("Route calculated successfully!");
           } else {
+            console.error('No routes found:', data);
             toast.error("Could not calculate route between locations");
           }
         } catch (error) {
@@ -108,6 +111,10 @@ function MapUpdater({
       };
 
       fetchRoute();
+    } else {
+      // Clear route when no restroom is selected
+      setRoutePath([]);
+      setRouteDetails(null);
     }
   }, [selectedRestroom, userLocation, map]);
 
@@ -159,7 +166,27 @@ export function Map({ restrooms, currentLocation, selectedId, onSelectRestroom }
         );
       }
     }
-  }, [selectedId]);
+  }, [selectedId, userLocation]);
+
+  // When user explicitly changes the selected restroom, try to get their location again
+  const handleSelectRestroom = (id: string) => {
+    setActiveId(id);
+    onSelectRestroom(id);
+    
+    // If we don't have the user's location yet, try to get it
+    if (!userLocation && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation(position);
+          toast.success("Location access granted. Calculating route...");
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          toast.error("Location access required to see directions. Please enable location services.");
+        }
+      );
+    }
+  };
 
   const selectedRestroom = restrooms.find(r => r.id === selectedId);
 
@@ -210,8 +237,7 @@ export function Map({ restrooms, currentLocation, selectedId, onSelectRestroom }
               icon={createRestroomIcon(cleanlinessTier)}
               eventHandlers={{
                 click: () => {
-                  setActiveId(restroom.id);
-                  onSelectRestroom(restroom.id);
+                  handleSelectRestroom(restroom.id);
                 },
               }}
             >
@@ -231,7 +257,7 @@ export function Map({ restrooms, currentLocation, selectedId, onSelectRestroom }
                       size="sm" 
                       onClick={(e) => {
                         e.stopPropagation();
-                        onSelectRestroom(restroom.id);
+                        handleSelectRestroom(restroom.id);
                       }}
                     >
                       View Details

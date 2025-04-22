@@ -16,7 +16,8 @@ const fuelStationDataset = [
     "Cleanliness Rating": 4.4,
     "Accessibility": "Yes",
     "Review": "Excellent cleanliness and well-equipped with essentials.",
-    "Tag": "clean"
+    "Tag": "clean",
+    "Coordinates": { "lat": 11.0272, "lng": 76.8991 }
   },
   {
     "Name": "Fuel Station Podanur #1543",
@@ -25,7 +26,8 @@ const fuelStationDataset = [
     "Cleanliness Rating": 4.1,
     "Accessibility": "Yes",
     "Review": "Hygienic environment, spotless and comfortable.",
-    "Tag": "clean"
+    "Tag": "clean",
+    "Coordinates": { "lat": 10.9907, "lng": 76.9723 }
   },
   {
     "Name": "Fuel Station Saibaba Colony #1544",
@@ -34,7 +36,8 @@ const fuelStationDataset = [
     "Cleanliness Rating": 2.2,
     "Accessibility": "Yes",
     "Review": "Unhygienic and poorly maintained.",
-    "Tag": "dirty"
+    "Tag": "dirty",
+    "Coordinates": { "lat": 11.0268, "lng": 76.9346 }
   },
   {
     "Name": "Fuel Station Saravanampatti #1545",
@@ -43,7 +46,8 @@ const fuelStationDataset = [
     "Cleanliness Rating": 2.5,
     "Accessibility": "Yes",
     "Review": "Average cleanliness, can be improved.",
-    "Tag": "moderate"
+    "Tag": "moderate",
+    "Coordinates": { "lat": 11.0791, "lng": 77.0061 }
   },
   {
     "Name": "Fuel Station Ganapathy #1546",
@@ -52,7 +56,8 @@ const fuelStationDataset = [
     "Cleanliness Rating": 4.7,
     "Accessibility": "Yes",
     "Review": "Hygienic environment, spotless and comfortable.",
-    "Tag": "clean"
+    "Tag": "clean",
+    "Coordinates": { "lat": 11.0352, "lng": 76.9991 }
   },
   {
     "Name": "Fuel Station Thudiyalur #1547",
@@ -61,7 +66,8 @@ const fuelStationDataset = [
     "Cleanliness Rating": 3.1,
     "Accessibility": "Yes",
     "Review": "Not very bad, but could be more hygienic.",
-    "Tag": "moderate"
+    "Tag": "moderate",
+    "Coordinates": { "lat": 11.0712, "lng": 76.9452 }
   },
   {
     "Name": "Fuel Station Sulur #1548",
@@ -70,7 +76,8 @@ const fuelStationDataset = [
     "Cleanliness Rating": 3.7,
     "Accessibility": "Yes",
     "Review": "Excellent cleanliness and well-equipped with essentials.",
-    "Tag": "clean"
+    "Tag": "clean",
+    "Coordinates": { "lat": 11.0286, "lng": 77.1285 }
   },
   // Additional locations in Coimbatore for better district-wide coverage
   {
@@ -80,7 +87,8 @@ const fuelStationDataset = [
     "Cleanliness Rating": 4.3,
     "Accessibility": "Yes",
     "Review": "Very clean facilities and well maintained.",
-    "Tag": "clean"
+    "Tag": "clean",
+    "Coordinates": { "lat": 11.0073, "lng": 77.0281 }
   },
   {
     "Name": "Fuel Station RS Puram #1550",
@@ -89,7 +97,8 @@ const fuelStationDataset = [
     "Cleanliness Rating": 4.5,
     "Accessibility": "Yes",
     "Review": "Excellent facilities, very hygienic and comfortable.",
-    "Tag": "clean"
+    "Tag": "clean",
+    "Coordinates": { "lat": 11.0083, "lng": 76.9514 }
   },
   {
     "Name": "Fuel Station Peelamedu #1551",
@@ -98,7 +107,8 @@ const fuelStationDataset = [
     "Cleanliness Rating": 3.8,
     "Accessibility": "Yes",
     "Review": "Good maintenance and cleanliness standards.",
-    "Tag": "clean"
+    "Tag": "clean",
+    "Coordinates": { "lat": 11.0183, "lng": 77.0066 }
   },
   {
     "Name": "Fuel Station Ukkadam #1552",
@@ -107,17 +117,19 @@ const fuelStationDataset = [
     "Cleanliness Rating": 2.9,
     "Accessibility": "Yes",
     "Review": "Average facilities, needs improvement in cleanliness.",
-    "Tag": "moderate"
+    "Tag": "moderate",
+    "Coordinates": { "lat": 10.9925, "lng": 76.9567 }
   }
 ];
 
 // Function to convert the fuel station dataset to Restroom format
 const convertDatasetToRestrooms = (): Restroom[] => {
   return fuelStationDataset.map((station, index) => {
-    // Generate a random location near Coimbatore's center for demonstration
-    // In a real app, you'd use geocoding to get exact coordinates
-    const randomLat = defaultLocation.lat + (Math.random() - 0.5) * 0.1;
-    const randomLng = defaultLocation.lng + (Math.random() - 0.5) * 0.1;
+    // Use the provided coordinates instead of random ones
+    const locationCoords = station.Coordinates || {
+      lat: defaultLocation.lat + (Math.random() - 0.5) * 0.1,
+      lng: defaultLocation.lng + (Math.random() - 0.5) * 0.1
+    };
     
     // Extract location parts
     const locationParts = station.Location.split(', ');
@@ -137,8 +149,8 @@ const convertDatasetToRestrooms = (): Restroom[] => {
       name: station.Name,
       description: `${station.Type} restroom in ${area}`,
       location: {
-        lat: randomLat,
-        lng: randomLng,
+        lat: locationCoords.lat,
+        lng: locationCoords.lng,
         address: station.Location,
         city: "Coimbatore",
         state: "Tamil Nadu"

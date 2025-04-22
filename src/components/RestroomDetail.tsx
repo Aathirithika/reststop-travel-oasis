@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { Restroom } from "@/types";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, MapPin, Route } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { LocationSection } from "@/components/restroom/LocationSection";
 import { CleanlinessSection } from "@/components/restroom/CleanlinessSection";
 import { AmenitiesSection } from "@/components/restroom/AmenitiesSection";
@@ -53,18 +54,26 @@ export function RestroomDetail({ restroom, onBack, onShowOnMap }: RestroomDetail
         navigator.geolocation.getCurrentPosition(resolve, reject);
       });
 
-      const origin = `${position.coords.latitude},${position.coords.longitude}`;
-      const destination = `${restroom.location.lat},${restroom.location.lng}`;
+      const startLat = position.coords.latitude;
+      const startLng = position.coords.longitude;
+      const endLat = restroom.location.lat;
+      const endLng = restroom.location.lng;
       
+      // Use OSRM for route calculation
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin}&destinations=${destination}&mode=driving&units=metric&key=${process.env.GOOGLE_MAPS_API_KEY}`
+        `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full`
       );
       
       const data = await response.json();
       
-      if (data.rows[0]?.elements[0]?.distance && data.rows[0]?.elements[0]?.duration) {
-        setDistance(data.rows[0].elements[0].distance.text);
-        setDuration(data.rows[0].elements[0].duration.text);
+      if (data.routes && data.routes.length > 0) {
+        const distanceInKm = (data.routes[0].distance / 1000).toFixed(1);
+        const durationInMin = Math.round(data.routes[0].duration / 60);
+        
+        setDistance(`${distanceInKm} km`);
+        setDuration(`${durationInMin} min`);
+      } else {
+        throw new Error("No route found");
       }
     } catch (error) {
       console.error('Error calculating route:', error);
@@ -82,9 +91,14 @@ export function RestroomDetail({ restroom, onBack, onShowOnMap }: RestroomDetail
     // Calculate route first
     calculateRoute();
     
-    // Open Google Maps with directions
-    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${restroom.location.lat},${restroom.location.lng}&travelmode=driving`;
-    window.open(mapsUrl, '_blank');
+    // Show on map if available
+    if (onShowOnMap) {
+      onShowOnMap();
+    } else {
+      // Fallback to opening in Google Maps if map view isn't available
+      const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${restroom.location.lat},${restroom.location.lng}&travelmode=driving`;
+      window.open(mapsUrl, '_blank');
+    }
   };
 
   return (
